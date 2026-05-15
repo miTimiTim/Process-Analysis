@@ -1637,7 +1637,10 @@ def score_unit_quality(s: Submission, checklist: list[dict]) -> dict:
     return {
         "unit": s.unit_name,
         "role": s.unit_role,
-        "business": s.business_name_canonical or s.business_name_raw,
+        "domain": s.inspection_domain or s.business_name_canonical,
+        "categories": ", ".join(s.inspection_categories) if s.inspection_categories else "",
+        "business": s.business_name_raw,
+        "business_canonical": s.business_name_canonical,
         "completeness": round(completeness, 1),
         "clarity": round(clarity, 1),
         "awareness": round(awareness, 1),
@@ -1697,6 +1700,8 @@ def compare_implementation_units(business_name: str, is_subs: list[Submission]) 
                         "business": business_name,
                         "unit_a": a.unit_name,
                         "unit_b": b.unit_name,
+                        "business_name_a": a.business_name_raw,
+                        "business_name_b": b.business_name_raw,
                         "diff_node": node_name,
                         "diff_type": f"{a.unit_name}有此节点，{b.unit_name}无",
                         "detail_a": _find_node_detail(a.nodes, node_name),
@@ -1716,6 +1721,8 @@ def compare_implementation_units(business_name: str, is_subs: list[Submission]) 
                         "business": business_name,
                         "unit_a": a.unit_name,
                         "unit_b": b.unit_name,
+                        "business_name_a": a.business_name_raw,
+                        "business_name_b": b.business_name_raw,
                         "diff_node": node_name,
                         "diff_type": f"{b.unit_name}有此节点，{a.unit_name}无",
                         "detail_a": "（缺失）",
@@ -1734,6 +1741,8 @@ def compare_implementation_units(business_name: str, is_subs: list[Submission]) 
                                 "business": business_name,
                                 "unit_a": a.unit_name,
                                 "unit_b": b.unit_name,
+                                "business_name_a": a.business_name_raw,
+                                "business_name_b": b.business_name_raw,
                                 "diff_node": f"{an.name} ≈ {bn.name}",
                                 "diff_type": "岗位不同",
                                 "detail_a": f"岗位: {an.position}",
@@ -1886,8 +1895,10 @@ def generate_excel_report(
 
     # ---- Sheet 1: 应然-实然对照矩阵 ----
     ws1 = wb.create_sheet("应然-实然对照矩阵")
-    headers1 = ["业务线", "统筹单位", "实施单位", "节点序号", "应然节点", "实然节点",
+    headers1 = ["排查领域", "统筹单位", "统筹业务名称", "实施单位", "实施业务名称",
+                 "统筹排查分类", "实施排查分类", "节点序号", "应然节点", "实然节点",
                  "应然岗位", "实然岗位", "差异类型", "差异说明"]
+    NCOLS1 = len(headers1)
     _style_header(ws1, headers1)
     row = 2
     for biz_name, data in pairs.items():
@@ -1902,42 +1913,50 @@ def generate_excel_report(
                     for d in diffs:
                         ws1.cell(row=row, column=1, value=biz_name)
                         ws1.cell(row=row, column=2, value=ought.unit_name)
-                        ws1.cell(row=row, column=3, value=is_sub.unit_name)
-                        ws1.cell(row=row, column=4, value=d.seq)
-                        ws1.cell(row=row, column=5, value=d.ought_node or "")
-                        ws1.cell(row=row, column=6, value=d.is_node or "")
-                        ws1.cell(row=row, column=7, value=d.ought_position or "")
-                        ws1.cell(row=row, column=8, value=d.is_position or "")
-                        ws1.cell(row=row, column=9, value=d.diff_type)
-                        ws1.cell(row=row, column=10, value=d.description)
-                        _apply_diff_fill(ws1, row, d.diff_type, 10)
+                        ws1.cell(row=row, column=3, value=ought.business_name_raw)
+                        ws1.cell(row=row, column=4, value=is_sub.unit_name)
+                        ws1.cell(row=row, column=5, value=is_sub.business_name_raw)
+                        ws1.cell(row=row, column=6, value=", ".join(ought.inspection_categories) if ought.inspection_categories else "")
+                        ws1.cell(row=row, column=7, value=", ".join(is_sub.inspection_categories) if is_sub.inspection_categories else "")
+                        ws1.cell(row=row, column=8, value=d.seq)
+                        ws1.cell(row=row, column=9, value=d.ought_node or "")
+                        ws1.cell(row=row, column=10, value=d.is_node or "")
+                        ws1.cell(row=row, column=11, value=d.ought_position or "")
+                        ws1.cell(row=row, column=12, value=d.is_position or "")
+                        ws1.cell(row=row, column=13, value=d.diff_type)
+                        ws1.cell(row=row, column=14, value=d.description)
+                        _apply_diff_fill(ws1, row, d.diff_type, NCOLS1)
                         row += 1
         else:
-            # 无统筹单位，与最小节点清单对比
             for is_sub in is_subs:
                 diffs = compare_against_checklist(is_sub.nodes, checklist)
                 for d in diffs:
                     ws1.cell(row=row, column=1, value=biz_name)
                     ws1.cell(row=row, column=2, value="（最小节点清单）")
-                    ws1.cell(row=row, column=3, value=is_sub.unit_name)
-                    ws1.cell(row=row, column=4, value=d.seq)
-                    ws1.cell(row=row, column=5, value=d.ought_node or "")
-                    ws1.cell(row=row, column=6, value=d.is_node or "")
-                    ws1.cell(row=row, column=7, value=d.ought_position or "")
-                    ws1.cell(row=row, column=8, value=d.is_position or "")
-                    ws1.cell(row=row, column=9, value=d.diff_type)
-                    ws1.cell(row=row, column=10, value=d.description)
-                    _apply_diff_fill(ws1, row, d.diff_type, 10)
+                    ws1.cell(row=row, column=3, value="")
+                    ws1.cell(row=row, column=4, value=is_sub.unit_name)
+                    ws1.cell(row=row, column=5, value=is_sub.business_name_raw)
+                    ws1.cell(row=row, column=6, value="")
+                    ws1.cell(row=row, column=7, value=", ".join(is_sub.inspection_categories) if is_sub.inspection_categories else "")
+                    ws1.cell(row=row, column=8, value=d.seq)
+                    ws1.cell(row=row, column=9, value=d.ought_node or "")
+                    ws1.cell(row=row, column=10, value=d.is_node or "")
+                    ws1.cell(row=row, column=11, value=d.ought_position or "")
+                    ws1.cell(row=row, column=12, value=d.is_position or "")
+                    ws1.cell(row=row, column=13, value=d.diff_type)
+                    ws1.cell(row=row, column=14, value=d.description)
+                    _apply_diff_fill(ws1, row, d.diff_type, NCOLS1)
                     row += 1
 
-    _style_body(ws1, 2, row - 1, 10)
+    _style_body(ws1, 2, row - 1, NCOLS1)
     _auto_width(ws1)
     ws1.auto_filter.ref = ws1.dimensions
 
     # ---- Sheet 2: 自查质量排序 ----
     ws2 = wb.create_sheet("自查质量排序")
-    headers2 = ["排名", "单位名称", "单位职能", "业务线", "节点完整度(25)", "岗位清晰度(25)",
-                 "风险自觉度(25)", "岗位标注度(25)", "总分(100)", "等级"]
+    headers2 = ["排名", "单位名称", "单位职能", "排查领域", "业务名称", "排查分类",
+                 "节点完整度(25)", "岗位清晰度(25)", "风险自觉度(25)", "岗位标注度(25)", "总分(100)", "等级"]
+    NCOLS2 = len(headers2)
     _style_header(ws2, headers2)
     unit_qualities.sort(key=lambda x: x["total"], reverse=True)
     for i, q in enumerate(unit_qualities):
@@ -1945,26 +1964,29 @@ def generate_excel_report(
         ws2.cell(row=row, column=1, value=i + 1)
         ws2.cell(row=row, column=2, value=q["unit"])
         ws2.cell(row=row, column=3, value=q["role"])
-        ws2.cell(row=row, column=4, value=q["business"])
-        ws2.cell(row=row, column=5, value=q["completeness"])
-        ws2.cell(row=row, column=6, value=q["clarity"])
-        ws2.cell(row=row, column=7, value=q["awareness"])
-        ws2.cell(row=row, column=8, value=q["position_detail"])
-        ws2.cell(row=row, column=9, value=q["total"])
-        ws2.cell(row=row, column=10, value=q["grade"])
+        ws2.cell(row=row, column=4, value=q.get("domain", ""))
+        ws2.cell(row=row, column=5, value=q["business"])
+        ws2.cell(row=row, column=6, value=q.get("categories", ""))
+        ws2.cell(row=row, column=7, value=q["completeness"])
+        ws2.cell(row=row, column=8, value=q["clarity"])
+        ws2.cell(row=row, column=9, value=q["awareness"])
+        ws2.cell(row=row, column=10, value=q["position_detail"])
+        ws2.cell(row=row, column=11, value=q["total"])
+        ws2.cell(row=row, column=12, value=q["grade"])
         if q["grade"] == "差":
-            for c in range(1, 11):
+            for c in range(1, NCOLS2 + 1):
                 ws2.cell(row=row, column=c).fill = RED_FILL
         elif q["grade"] == "中":
-            for c in range(1, 11):
+            for c in range(1, NCOLS2 + 1):
                 ws2.cell(row=row, column=c).fill = YELLOW_FILL
-    _style_body(ws2, 2, len(unit_qualities) + 1, 10)
+    _style_body(ws2, 2, len(unit_qualities) + 1, NCOLS2)
     _auto_width(ws2)
     ws2.auto_filter.ref = ws2.dimensions
 
     # ---- Sheet 3: 高风险靶点清单 ----
     ws3 = wb.create_sheet("高风险靶点清单")
-    headers3 = ["优先级", "业务线", "单位", "差异节点", "差异类型", "风险描述", "建议追问"]
+    headers3 = ["优先级", "排查领域", "单位", "业务名称", "排查分类", "差异节点", "差异类型", "风险描述", "建议追问"]
+    NCOLS3 = len(headers3)
     _style_header(ws3, headers3)
     row = 2
     for biz_name, data in pairs.items():
@@ -1983,13 +2005,15 @@ def generate_excel_report(
                             ws3.cell(row=row, column=1, value=priority)
                             ws3.cell(row=row, column=2, value=biz_name)
                             ws3.cell(row=row, column=3, value=is_sub.unit_name)
-                            ws3.cell(row=row, column=4, value=d.ought_node or d.is_node or "")
-                            ws3.cell(row=row, column=5, value=d.diff_type)
-                            ws3.cell(row=row, column=6, value=d.description)
-                            ws3.cell(row=row, column=7, value=_generate_pursuit_question(d, biz_name))
-                            _apply_diff_fill(ws3, row, d.diff_type, 7)
+                            ws3.cell(row=row, column=4, value=is_sub.business_name_raw)
+                            ws3.cell(row=row, column=5, value=", ".join(is_sub.inspection_categories) if is_sub.inspection_categories else "")
+                            ws3.cell(row=row, column=6, value=d.ought_node or d.is_node or "")
+                            ws3.cell(row=row, column=7, value=d.diff_type)
+                            ws3.cell(row=row, column=8, value=d.description)
+                            ws3.cell(row=row, column=9, value=_generate_pursuit_question(d, biz_name))
+                            _apply_diff_fill(ws3, row, d.diff_type, NCOLS3)
                             row += 1
-    _style_body(ws3, 2, row - 1, 7)
+    _style_body(ws3, 2, row - 1, NCOLS3)
     _auto_width(ws3)
     ws3.auto_filter.ref = ws3.dimensions
 
@@ -2056,25 +2080,28 @@ def generate_excel_report(
 
     # ---- Sheet 6: 同业务差异对比 ----
     ws6 = wb.create_sheet("同业务差异对比")
-    headers6 = ["业务线", "实施单位A", "实施单位B", "差异节点", "差异类型", "A描述", "B描述", "预计影响"]
+    headers6 = ["排查领域", "实施单位A", "业务名称A", "实施单位B", "业务名称B", "差异节点", "差异类型", "A描述", "B描述", "预计影响"]
+    NCOLS6 = len(headers6)
     _style_header(ws6, headers6)
     for i, comp in enumerate(impl_comparisons):
         row = i + 2
         ws6.cell(row=row, column=1, value=comp["business"])
         ws6.cell(row=row, column=2, value=comp["unit_a"])
-        ws6.cell(row=row, column=3, value=comp["unit_b"])
-        ws6.cell(row=row, column=4, value=comp["diff_node"])
-        ws6.cell(row=row, column=5, value=comp["diff_type"])
-        ws6.cell(row=row, column=6, value=comp["detail_a"])
-        ws6.cell(row=row, column=7, value=comp["detail_b"])
-        ws6.cell(row=row, column=8, value=comp["impact"])
+        ws6.cell(row=row, column=3, value=comp.get("business_name_a", ""))
+        ws6.cell(row=row, column=4, value=comp["unit_b"])
+        ws6.cell(row=row, column=5, value=comp.get("business_name_b", ""))
+        ws6.cell(row=row, column=6, value=comp["diff_node"])
+        ws6.cell(row=row, column=7, value=comp["diff_type"])
+        ws6.cell(row=row, column=8, value=comp["detail_a"])
+        ws6.cell(row=row, column=9, value=comp["detail_b"])
+        ws6.cell(row=row, column=10, value=comp["impact"])
         if "高风险" in comp.get("impact", ""):
-            for c in range(1, 9):
+            for c in range(1, NCOLS6 + 1):
                 ws6.cell(row=row, column=c).fill = RED_FILL
         elif "中风险" in comp.get("impact", ""):
-            for c in range(1, 9):
+            for c in range(1, NCOLS6 + 1):
                 ws6.cell(row=row, column=c).fill = YELLOW_FILL
-    _style_body(ws6, 2, len(impl_comparisons) + 1, 8)
+    _style_body(ws6, 2, len(impl_comparisons) + 1, NCOLS6)
     _auto_width(ws6)
     ws6.auto_filter.ref = ws6.dimensions
 
@@ -2422,9 +2449,10 @@ def generate_docx_summary(
     worst = sorted(unit_qualities, key=lambda x: x["total"])[:5]
     if worst:
         _docx_add_para(doc, "自查质量最差的 5 条记录：", indent=True)
-        headers = ["单位", "业务线", "总分", "等级", "主要问题"]
+        headers = ["单位", "排查领域", "业务名称", "排查分类", "总分", "等级", "主要问题"]
         rows_data = [
-            [q["unit"], q["business"], str(q["total"]), q["grade"],
+            [q["unit"], q.get("domain", ""), q["business"], q.get("categories", ""),
+             str(q["total"]), q["grade"],
              "; ".join(q.get("flags", [])[:2]) if q.get("flags") else "无明显问题"]
             for q in worst
         ]
@@ -2436,7 +2464,7 @@ def generate_docx_summary(
         _docx_add_para(doc, f"疑似抄模板或敷衍填写 {len(template_suspects)} 条，建议重点复核以下单位：", indent=True)
         for q in sorted(template_suspects, key=lambda x: x["total"])[:8]:
             flags_str = "；".join(q["flags"][:3])
-            _docx_add_para(doc, f"• {q['unit']}（{q['business']}）— {q['total']}分 [{q['grade']}]：{flags_str}", indent=True)
+            _docx_add_para(doc, f"• {q['unit']}（{q.get('domain', '')} / {q['business']}）— {q['total']}分 [{q['grade']}]：{flags_str}", indent=True)
 
     # ── 四、流程完整性 ──
     _docx_add_heading(doc, "四、流程完整性分析", level=1)
@@ -2450,9 +2478,9 @@ def generate_docx_summary(
         worst_integrity = sorted(integrity_results, key=lambda x: x["score"])[:8]
         if worst_integrity:
             _docx_add_para(doc, "完整性最差的流程：", indent=True)
-            headers = ["单位", "领域", "节点数", "评分", "等级", "主要问题"]
+            headers = ["单位", "排查领域", "业务名称", "节点数", "评分", "等级", "主要问题"]
             rows_data = [
-                [ir["unit"], ir["domain"], str(ir["node_count"]), str(ir["score"]), ir["grade"],
+                [ir["unit"], ir["domain"], ir.get("business", ""), str(ir["node_count"]), str(ir["score"]), ir["grade"],
                  "；".join(iss["问题"][:40] for iss in ir.get("issues", [])[:3])]
                 for ir in worst_integrity
             ]
