@@ -19,6 +19,16 @@ from pathlib import Path
 from typing import Optional
 
 try:
+    from docx import Document
+    from docx.shared import Pt, Inches, Cm, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.enum.table import WD_TABLE_ALIGNMENT
+    from docx.oxml.ns import qn
+    DOCX_AVAILABLE = True
+except ImportError:
+    DOCX_AVAILABLE = False
+
+try:
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
@@ -1112,10 +1122,12 @@ def analyze_process_integrity(s: Submission) -> dict:
     if not s.nodes:
         return {
             "unit": s.unit_name,
+            "role": s.unit_role,
             "domain": s.inspection_domain or s.business_name_canonical,
             "business": s.business_name_raw,
             "node_count": 0,
             "score": 0,
+            "grade": "严重不完整",
             "issues": [{"维度": "业务闭环", "问题": "无法解析流程节点，建议人工核查"}],
         }
 
@@ -2247,6 +2259,438 @@ def _anchor(text: str) -> str:
 
 
 # ============================================================================
+# Docx 文字总结报告
+# ============================================================================
+
+def _docx_add_heading(doc, text, level=1):
+    """添加带格式的标题"""
+    h = doc.add_heading(text, level=level)
+    for run in h.runs:
+        run.font.name = "微软雅黑"
+        run._element.rPr.rFonts.set(qn("w:eastAsia"), "微软雅黑")
+    return h
+
+
+def _docx_add_para(doc, text, bold=False, indent=False):
+    """添加正文段落"""
+    p = doc.add_paragraph()
+    if indent:
+        p.paragraph_format.first_line_indent = Cm(0.74)
+    run = p.add_run(text)
+    run.font.name = "微软雅黑"
+    run._element.rPr.rFonts.set(qn("w:eastAsia"), "微软雅黑")
+    run.font.size = Pt(11)
+    run.bold = bold
+    return p
+
+
+def _docx_add_table(doc, headers: list[str], rows: list[list[str]], col_widths=None):
+    """添加带格式的表格"""
+    table = doc.add_table(rows=1 + len(rows), cols=len(headers), style="Table Grid")
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+    # 表头
+    for i, h in enumerate(headers):
+        cell = table.rows[0].cells[i]
+        cell.text = h
+        for p in cell.paragraphs:
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            for run in p.runs:
+                run.font.name = "微软雅黑"
+                run._element.rPr.rFonts.set(qn("w:eastAsia"), "微软雅黑")
+                run.font.size = Pt(10)
+                run.bold = True
+        # 表头底色
+        shading = cell._element.get_or_add_tcPr()
+        shd = shading.makeelement(qn("w:shd"), {
+            qn("w:fill"): "4472C4",
+            qn("w:val"): "clear",
+        })
+        shading.append(shd)
+        for run in cell.paragraphs[0].runs:
+            run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+
+    # 数据行
+    for r, row_data in enumerate(rows):
+        for c, val in enumerate(row_data):
+            cell = table.rows[r + 1].cells[c]
+            cell.text = str(val)
+            for p in cell.paragraphs:
+                for run in p.runs:
+                    run.font.name = "微软雅黑"
+                    run._element.rPr.rFonts.set(qn("w:eastAsia"), "微软雅黑")
+                    run.font.size = Pt(10)
+
+    if col_widths:
+        for i, w in enumerate(col_widths):
+            for row in table.rows:
+                row.cells[i].width = Cm(w)
+
+    doc.add_paragraph()  # 表后空行
+    return table
+
+
+def generate_docx_summary(
+    output_path: str,
+    submissions: list,
+    pairs: dict,
+    business_risks: list[BusinessRisk],
+    unit_qualities: list[dict],
+    integrity_results: list[dict],
+    orphans: dict,
+    all_diffs: dict,
+    cat_issues: list[dict],
+    domain_conflicts: list,
+    impl_comparisons: list[dict],
+):
+    """生成文字版分析总结报告（.docx）"""
+    if not DOCX_AVAILABLE:
+        print("[警告] python-docx 未安装，跳过 docx 报告生成。请执行: pip install python-docx")
+        return
+
+    doc = Document()
+
+    # 设置默认字体
+    style = doc.styles["Normal"]
+    font = style.font
+    font.name = "微软雅黑"
+    font.size = Pt(11)
+    style.element.rPr.rFonts.set(qn("w:eastAsia"), "微软雅黑")
+
+    # ── 封面标题 ──
+    title = doc.add_paragraph()
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title.paragraph_format.space_before = Pt(60)
+    run = title.add_run("廉洁风险排查分析总结报告")
+    run.font.name = "微软雅黑"
+    run._element.rPr.rFonts.set(qn("w:eastAsia"), "微软雅黑")
+    run.font.size = Pt(22)
+    run.bold = True
+
+    subtitle = doc.add_paragraph()
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = subtitle.add_run(f"生成日期：{datetime.now().strftime('%Y年%m月%d日')}")
+    run.font.name = "微软雅黑"
+    run._element.rPr.rFonts.set(qn("w:eastAsia"), "微软雅黑")
+    run.font.size = Pt(12)
+    run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+
+    doc.add_paragraph()
+
+    # ── 一、总体情况 ──
+    _docx_add_heading(doc, "一、总体情况", level=1)
+    unit_count = len(set(s.unit_name for s in submissions))
+    domain_dist = defaultdict(int)
+    role_dist = defaultdict(int)
+    for s in submissions:
+        domain_dist[s.inspection_domain or "未知"] += 1
+        role_dist[s.unit_role] += 1
+    _docx_add_para(doc, f"本次排查共收到 {len(submissions)} 条自查记录，涉及 {unit_count} 个单位。", indent=True)
+    _docx_add_para(doc, f"排查领域分布：{', '.join(f'{k}({v}条)' for k, v in domain_dist.items())}。", indent=True)
+    _docx_add_para(doc, f"角色分布：统筹 {role_dist.get('统筹', 0)} 条、实施 {role_dist.get('实施', 0)} 条、双重 {role_dist.get('双重', 0)} 条。", indent=True)
+
+    # ── 二、高风险业务线 ──
+    _docx_add_heading(doc, "二、高风险业务线评估", level=1)
+    high_risk = [br for br in business_risks if br.level in ("A", "B")]
+    high_risk.sort(key=lambda x: x.total_score, reverse=True)
+    if high_risk:
+        _docx_add_para(doc, f"经五维加权评分，以下 {len(high_risk)} 条业务线风险等级为 A 或 B，建议优先安排重点排查和现场核验：", indent=True)
+        headers = ["业务线", "节点完整度", "岗位清晰度", "权力集中度", "匹配度", "自觉度", "总分", "等级"]
+        rows_data = [
+            [br.business_name, str(br.node_completeness), str(br.position_clarity),
+             str(br.power_concentration), str(br.ought_is_match), str(br.self_awareness),
+             str(br.total_score), f"{br.level}（{br.level_desc}）"]
+            for br in high_risk
+        ]
+        _docx_add_table(doc, headers, rows_data)
+    else:
+        _docx_add_para(doc, "本次分析未发现 A/B 级高风险业务线。", indent=True)
+
+    # 风险等级说明
+    _docx_add_para(doc, "评分维度说明：节点完整度反映流程与最小节点清单的差距；岗位清晰度衡量各环节岗位标注的明确程度；权力集中度检测同一岗位跨越不相容权力类型的程度；匹配度反映统筹流程与实施流程的一致性；自觉度评估自查风险描述和防控措施的质量（含抄模板检测）。", indent=True)
+
+    # ── 三、自查质量评估 ──
+    _docx_add_heading(doc, "三、自查质量评估", level=1)
+    _docx_add_para(doc, "从节点完整度、岗位清晰度、风险自觉度、岗位标注度四个维度对每条自查记录进行百分制评分。", indent=True)
+
+    # 质量分布
+    grade_dist = defaultdict(int)
+    for q in unit_qualities:
+        grade_dist[q["grade"]] += 1
+    _docx_add_para(doc, f"等级分布：优 {grade_dist.get('优', 0)} 条、良 {grade_dist.get('良', 0)} 条、中 {grade_dist.get('中', 0)} 条、差 {grade_dist.get('差', 0)} 条。", indent=True)
+
+    worst = sorted(unit_qualities, key=lambda x: x["total"])[:5]
+    if worst:
+        _docx_add_para(doc, "自查质量最差的 5 条记录：", indent=True)
+        headers = ["单位", "业务线", "总分", "等级", "主要问题"]
+        rows_data = [
+            [q["unit"], q["business"], str(q["total"]), q["grade"],
+             "; ".join(q.get("flags", [])[:2]) if q.get("flags") else "无明显问题"]
+            for q in worst
+        ]
+        _docx_add_table(doc, headers, rows_data)
+
+    # 抄模板/敷衍
+    template_suspects = [q for q in unit_qualities if q.get("flags")]
+    if template_suspects:
+        _docx_add_para(doc, f"疑似抄模板或敷衍填写 {len(template_suspects)} 条，建议重点复核以下单位：", indent=True)
+        for q in sorted(template_suspects, key=lambda x: x["total"])[:8]:
+            flags_str = "；".join(q["flags"][:3])
+            _docx_add_para(doc, f"• {q['unit']}（{q['business']}）— {q['total']}分 [{q['grade']}]：{flags_str}", indent=True)
+
+    # ── 四、流程完整性 ──
+    _docx_add_heading(doc, "四、流程完整性分析", level=1)
+    if integrity_results:
+        defect_count = sum(1 for ir in integrity_results if ir["grade"] in ("存在明显缺陷", "严重不完整"))
+        severe_count = sum(1 for ir in integrity_results if ir["grade"] == "严重不完整")
+        conceal_count = sum(1 for ir in integrity_results
+                           if any(iss["维度"] == "隐瞒信号" for iss in ir.get("issues", [])))
+        _docx_add_para(doc, f"逐条独立审查 {len(integrity_results)} 条流程描述的逻辑合理性、业务闭环和隐瞒信号。存在明显缺陷 {defect_count} 条（其中严重不完整 {severe_count} 条），存在隐瞒信号 {conceal_count} 条。", indent=True)
+
+        worst_integrity = sorted(integrity_results, key=lambda x: x["score"])[:8]
+        if worst_integrity:
+            _docx_add_para(doc, "完整性最差的流程：", indent=True)
+            headers = ["单位", "领域", "节点数", "评分", "等级", "主要问题"]
+            rows_data = [
+                [ir["unit"], ir["domain"], str(ir["node_count"]), str(ir["score"]), ir["grade"],
+                 "；".join(iss["问题"][:40] for iss in ir.get("issues", [])[:3])]
+                for ir in worst_integrity
+            ]
+            _docx_add_table(doc, headers, rows_data)
+
+        # 隐瞒信号详情
+        concealment = [ir for ir in integrity_results
+                       if any(iss["维度"] == "隐瞒信号" for iss in ir.get("issues", []))]
+        if concealment:
+            _docx_add_para(doc, "隐瞒信号分类统计：", indent=True)
+            conceal_types = defaultdict(int)
+            for ir in concealment:
+                for iss in ir.get("issues", []):
+                    if iss["维度"] == "隐瞒信号":
+                        # 简单归类
+                        if "笼统" in iss["问题"]:
+                            conceal_types["节点名过于笼统"] += 1
+                        elif "合并" in iss["问题"]:
+                            conceal_types["关键环节不当合并"] += 1
+                        elif "未标注岗位" in iss["问题"]:
+                            conceal_types["关键节点缺岗位"] += 1
+                        elif "简短" in iss["问题"]:
+                            conceal_types["流程描述过短"] += 1
+                        else:
+                            conceal_types[iss["问题"][:20]] += 1
+            for k, v in sorted(conceal_types.items(), key=lambda x: -x[1]):
+                _docx_add_para(doc, f"• {k}：{v} 处", indent=True)
+
+    # ── 五、配对完整性 ──
+    _docx_add_heading(doc, "五、统筹-实施配对完整性", level=1)
+    if orphans["orphan_ought"]:
+        _docx_add_para(doc, f"有统筹无实施（统筹孤儿业务）{len(orphans['orphan_ought'])} 条：", indent=True)
+        for domain, unit, biz in orphans["orphan_ought"]:
+            _docx_add_para(doc, f"• [{domain}] {unit}：{biz}", indent=True)
+    else:
+        _docx_add_para(doc, "未发现统筹孤儿业务。", indent=True)
+
+    if orphans["orphan_is"]:
+        _docx_add_para(doc, f"有实施无统筹（实施孤儿业务）{len(orphans['orphan_is'])} 条：", indent=True)
+        for domain, unit, biz in orphans["orphan_is"]:
+            _docx_add_para(doc, f"• [{domain}] {unit}：{biz}", indent=True)
+    else:
+        _docx_add_para(doc, "未发现实施孤儿业务。", indent=True)
+
+    if not orphans["orphan_ought"] and not orphans["orphan_is"]:
+        _docx_add_para(doc, "统筹与实施配对基本完整，未发现明显缺失。", indent=True)
+
+    # ── 六、排查领域冲突 ──
+    if domain_conflicts:
+        _docx_add_heading(doc, "六、排查领域与流程推断冲突", level=1)
+        _docx_add_para(doc, f"以下 {len(domain_conflicts)} 条记录中，单位填写的排查领域与系统从流程文本关键字推断的领域不一致，建议人工核实确认：", indent=True)
+        for s in domain_conflicts:
+            inferred = _infer_business_from_process(s.raw_process) if s.raw_process else "无法推断"
+            _docx_add_para(doc, f"• {s.unit_name}：排查领域='{s.inspection_domain}' ↔ 流程推断='{inferred}'", indent=True)
+
+    # ── 七、差异统计 ──
+    _docx_add_heading(doc, "七、应然-实然差异统计", level=1)
+    total_red = sum(1 for diffs in all_diffs.values() for d in diffs if d.diff_type == "节点消失")
+    total_orange = sum(1 for diffs in all_diffs.values() for d in diffs if d.diff_type == "岗位偏移")
+    total_yellow = sum(1 for diffs in all_diffs.values() for d in diffs if d.diff_type == "节点新增")
+    _docx_add_para(doc, f"统筹流程（应然）与实施流程（实然）逐节点对比结果：", indent=True)
+    _docx_add_para(doc, f"• 节点消失（红色，高风险）：{total_red} 处 — 应然节点在实施流程中未找到对应", indent=True)
+    _docx_add_para(doc, f"• 岗位偏移（橙色，中高风险）：{total_orange} 处 — 同一节点的执行岗位发生偏移", indent=True)
+    _docx_add_para(doc, f"• 节点新增（黄色，中风险）：{total_yellow} 处 — 实施流程比应然多出的节点", indent=True)
+
+    if impl_comparisons:
+        high_impact = [c for c in impl_comparisons if "高风险" in c.get("impact", "")]
+        _docx_add_para(doc, f"同业务不同实施单位之间共发现 {len(impl_comparisons)} 处差异，其中高风险差异 {len(high_impact)} 处。详情见 Excel 报告。", indent=True)
+
+    # ── 八、下一步工作建议 ──
+    _docx_add_heading(doc, "八、下一步工作建议", level=1)
+    suggestions = []
+    suggestions.append("1. 优先对 A/B 级高风险业务线安排现场核验，重点核查红色差异节点。")
+    if template_suspects:
+        suggestions.append(f"2. 对 {len(template_suspects)} 条疑似抄模板或敷衍填写的记录，退回相关单位重新填报，要求按实际业务流程如实填写。")
+    if orphans["orphan_ought"] or orphans["orphan_is"]:
+        suggestions.append("3. 对配对缺失的统筹/实施业务，核实是否存在遗漏，补充对应的自查材料。")
+    if domain_conflicts:
+        suggestions.append("4. 对排查领域选择与流程描述不一致的记录，请相关单位确认正确领域后修正。")
+    if cat_issues:
+        suggestions.append(f"5. 对 {len(cat_issues)} 处排查分类勾选与流程节点不匹配的情况，核实是勾选错误还是流程描述遗漏。")
+    suggestions.append("6. 现场核验时携带《现场核验手册》，重点追问差异节点的实际情况及佐证材料。")
+    suggestions.append("7. 核验完成后汇总发现的问题，形成整改台账，明确责任人和整改时限。")
+
+    for sug in suggestions:
+        _docx_add_para(doc, sug, indent=True)
+
+    # ── 页脚 ──
+    doc.add_paragraph()
+    _docx_add_para(doc, "本报告由 lzpc 分析工具自动生成，基于各单位提交的自查材料。如需调整分析参数，请编辑 analyzer.py 中的配置项。", indent=False)
+    for run in doc.paragraphs[-1].runs:
+        run.font.size = Pt(9)
+        run.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
+
+    doc.save(output_path)
+    print(f"[报告] 文字总结报告已保存至: {output_path}")
+
+
+# ============================================================================
+# Docx 现场核验手册
+# ============================================================================
+
+def generate_docx_handbook(
+    output_path: str,
+    pairs: dict,
+    business_risks: list[BusinessRisk],
+    impl_comparisons: list[dict],
+    all_diffs: dict,
+):
+    """生成 docx 格式的现场核验手册"""
+    if not DOCX_AVAILABLE:
+        print("[警告] python-docx 未安装，跳过 docx 核验手册生成。请执行: pip install python-docx")
+        return
+
+    doc = Document()
+    style = doc.styles["Normal"]
+    font = style.font
+    font.name = "微软雅黑"
+    font.size = Pt(11)
+    style.element.rPr.rFonts.set(qn("w:eastAsia"), "微软雅黑")
+
+    # ── 封面 ──
+    title = doc.add_paragraph()
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title.paragraph_format.space_before = Pt(60)
+    run = title.add_run("廉洁风险排查——现场核验手册")
+    run.font.name = "微软雅黑"
+    run._element.rPr.rFonts.set(qn("w:eastAsia"), "微软雅黑")
+    run.font.size = Pt(22)
+    run.bold = True
+
+    info = doc.add_paragraph()
+    info.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = info.add_run(f"生成日期：{datetime.now().strftime('%Y年%m月%d日')}　　|　　本手册根据各单位自查材料生成，供重点排查阶段现场核验使用")
+    run.font.name = "微软雅黑"
+    run._element.rPr.rFonts.set(qn("w:eastAsia"), "微软雅黑")
+    run.font.size = Pt(10)
+    run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+
+    doc.add_paragraph()
+
+    # 按风险等级排序
+    business_risks.sort(key=lambda x: x.total_score, reverse=True)
+
+    for br in business_risks:
+        data = pairs.get(br.business_name, {"ought": [], "is": []})
+
+        _docx_add_heading(doc, br.business_name, level=1)
+
+        # 风险等级标签
+        level_text = f"风险等级：{br.level}（{br.level_desc}）　　加权总分：{br.total_score}/5.0"
+        _docx_add_para(doc, level_text, bold=True)
+
+        # 风险维度概览表格
+        _docx_add_para(doc, "风险维度得分：", bold=True)
+        dim_headers = ["维度", "得分（1-5）", "说明"]
+        dim_rows = [
+            ["节点完整度", f"{br.node_completeness:.1f}", "与最小节点清单对照，缺失越多得分越高"],
+            ["岗位清晰度", f"{br.position_clarity:.1f}", "岗位标注越模糊得分越高"],
+            ["权力集中度", f"{br.power_concentration:.1f}", "同一岗位跨越权力类型越多得分越高"],
+            ["应然-实然匹配度", f"{br.ought_is_match:.1f}", "统筹与实施流程差异越大得分越高"],
+            ["自查风险自觉度", f"{br.self_awareness:.1f}", "自查越空洞得分越高"],
+        ]
+        _docx_add_table(doc, dim_headers, dim_rows, col_widths=[4, 2.5, 8])
+
+        # 应然-实然差异清单
+        if data["ought"] and data["is"]:
+            _docx_add_para(doc, "应然-实然差异清单：", bold=True)
+            for ought in data["ought"]:
+                for is_sub in data["is"]:
+                    diffs = compare_nodes(ought.nodes, is_sub.nodes)
+                    red_diffs = [d for d in diffs if d.diff_type in ("节点消失", "岗位偏移", "节点新增")]
+                    if red_diffs:
+                        _docx_add_para(doc, f"统筹单位：{ought.unit_name}　→　实施单位：{is_sub.unit_name}", bold=True)
+                        diff_headers = ["#", "应然节点", "实然节点", "差异类型", "差异说明"]
+                        diff_rows = [
+                            [str(d.seq), d.ought_node or "-", d.is_node or "-", d.diff_type, d.description]
+                            for d in red_diffs
+                        ]
+                        _docx_add_table(doc, diff_headers, diff_rows, col_widths=[1, 4, 4, 2, 5])
+
+        # 现场核查建议
+        if br.level in ("A", "B"):
+            suggestions = generate_verification_suggestions(
+                br.business_name, br.level,
+                all_diffs.get(br.business_name, []),
+            )
+
+            if suggestions.get("documents"):
+                _docx_add_para(doc, "建议查阅资料：", bold=True)
+                for d_item in suggestions["documents"]:
+                    _docx_add_para(doc, f"☐ {d_item}", indent=True)
+
+            if suggestions.get("interview_directions"):
+                _docx_add_para(doc, "谈话方向：", bold=True)
+                for d_item in suggestions["interview_directions"]:
+                    _docx_add_para(doc, f"• {d_item}", indent=True)
+
+            if suggestions.get("general_questions"):
+                _docx_add_para(doc, "重点谈话问题：", bold=True)
+                for q in suggestions["general_questions"]:
+                    _docx_add_para(doc, f"• {q}", indent=True)
+
+            if suggestions.get("targeted_questions"):
+                _docx_add_para(doc, "针对性追问（根据自查材料发现）：", bold=True)
+                for q in suggestions["targeted_questions"]:
+                    _docx_add_para(doc, f"• {q}", indent=True)
+
+        doc.add_page_break()
+
+    # ── 附录：同业务实施单位差异 ──
+    if impl_comparisons:
+        _docx_add_heading(doc, "附录：同业务不同实施单位差异对比", level=1)
+        _docx_add_para(doc, "以下列出同一业务在不同实施单位之间存在显著差异的情况，现场核验时应重点关注。", indent=True)
+        by_business = defaultdict(list)
+        for comp in impl_comparisons:
+            by_business[comp["business"]].append(comp)
+        for biz_name, comps in by_business.items():
+            _docx_add_heading(doc, biz_name, level=2)
+            headers = ["单位A", "单位B", "差异节点", "差异类型", "预计影响"]
+            rows_data = [
+                [c["unit_a"], c["unit_b"], c["diff_node"], c["diff_type"], c["impact"]]
+                for c in comps[:20]  # 最多 20 行，避免过长
+            ]
+            _docx_add_table(doc, headers, rows_data, col_widths=[3, 3, 3, 2, 5])
+
+    # ── 页脚 ──
+    doc.add_paragraph()
+    _docx_add_para(doc, "本手册由 lzpc 分析工具自动生成，基于各单位提交的自查材料。如需调整分析参数，请编辑 analyzer.py 中的配置项。", indent=False)
+    for run in doc.paragraphs[-1].runs:
+        run.font.size = Pt(9)
+        run.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
+
+    doc.save(output_path)
+    print(f"[报告] 现场核验手册已保存至: {output_path}")
+
+
+# ============================================================================
 # 主流程
 # ============================================================================
 
@@ -2362,8 +2806,13 @@ def main():
     print(f"[完整性] 共审查 {len(integrity_results)} 条流程")
     print(f"[完整性] 存在明显缺陷: {defect_count} 条, 严重不完整: {severe_count} 条")
 
+    # 提前收集供 docx 报告使用的变量
+    domain_conflicts = [s for s in submissions if s.domain_confidence == "待确认"]
+
     # Step 6: 生成报告
     print("\n[6/6] 生成分析报告...")
+
+    # Excel 数据报告
     excel_path = output_dir / "分析报告.xlsx"
     generate_excel_report(
         str(excel_path), pairs, business_risks, unit_qualities,
@@ -2371,9 +2820,19 @@ def main():
         integrity_results=integrity_results,
     )
 
-    md_path = output_dir / "现场核验手册.md"
-    generate_markdown_handbook(
-        str(md_path), pairs, business_risks, impl_comparisons, all_diffs,
+    # Docx 文字总结报告
+    docx_summary_path = output_dir / "分析总结报告.docx"
+    generate_docx_summary(
+        str(docx_summary_path), submissions, pairs, business_risks,
+        unit_qualities, integrity_results, orphans, all_diffs,
+        cat_issues, domain_conflicts, impl_comparisons,
+    )
+
+    # Docx 现场核验手册
+    docx_handbook_path = output_dir / "现场核验手册.docx"
+    generate_docx_handbook(
+        str(docx_handbook_path), pairs, business_risks,
+        impl_comparisons, all_diffs,
     )
 
     # ---- 打印摘要 ----
@@ -2454,7 +2913,6 @@ def main():
                 print(f"      {flag}")
 
     # 排查领域与流程推断冲突的记录
-    domain_conflicts = [s for s in submissions if s.domain_confidence == "待确认"]
     if domain_conflicts:
         print(f"\n[!] 排查领域-流程推断冲突 ({len(domain_conflicts)} 条，建议人工确认):")
         for s in domain_conflicts:
@@ -2480,7 +2938,8 @@ def main():
 
     print(f"\n详细报告:")
     print(f"  [Excel] {excel_path}")
-    print(f"  [手册] {md_path}")
+    print(f"  [总结] {docx_summary_path}")
+    print(f"  [手册] {docx_handbook_path}")
     print("\n分析完成。")
 
 
