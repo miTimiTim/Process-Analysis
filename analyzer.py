@@ -171,6 +171,270 @@ TEMPLATE_EXAMPLE_SNIPPETS = {
 
 
 # ============================================================================
+# 供水行业廉洁风险知识库
+# ============================================================================
+# 每条风险模式包含: name(风险名称), category(腐败/违规/不作为),
+# signals(流程描述中可能出现的信号词), control_gaps(常见防控缺失),
+# typical_desc(典型表现描述), risk_level(高/中)
+
+WATER_INDUSTRY_RISK_PATTERNS = {
+    "工程建设与抢修维修（含二供）": [
+        {
+            "name": "虚假抢修/虚增工程量",
+            "category": "腐败",
+            "risk_level": "高",
+            "signals": ["抢修", "应急", "事后补单", "口头派工", "先施工后补手续", "签证"],
+            "typical_desc": "利用抢修项目时间紧、事后核实难的特点，虚报工程量或伪造抢修记录套取资金。应急抢修常以口头指令代替书面审批，为虚报提供操作空间。",
+            "control_gaps": ["抢修前后未拍照留证", "工程量无第三方核实", "事后补单未经独立审核", "抢修记录与材料领用对不上"],
+            "expected_controls": ["抢修前后现场拍照并带时间水印", "工程量由非施工方独立核量", "应急项目事后7日内补齐全部手续并经独立审批"],
+        },
+        {
+            "name": "围标串标/人情施工队",
+            "category": "腐败",
+            "risk_level": "高",
+            "signals": ["招标", "投标", "施工队", "派工", "长期合作", "固定", "指定"],
+            "typical_desc": "通过设置排他性招标条件、长期固定使用同一施工队、或人为拆分项目规避招标，形成利益绑定。施工队为维持关系可能向相关人员输送利益。",
+            "control_gaps": ["施工队长期未轮换", "招标条件有指向性", "同一施工队集中度过高", "小额项目化整为零规避招标"],
+            "expected_controls": ["施工队年度轮换或随机分配", "同一施工队年度承揽量设上限", "招标文件经法务、技术双重审核"],
+        },
+        {
+            "name": "材料管理混乱/以次充好",
+            "category": "腐败",
+            "risk_level": "高",
+            "signals": ["领料", "材料", "管材", "阀门", "出库", "仓管"],
+            "typical_desc": "材料领用与实际安装量不符，余料不退回形成账外物资；或在施工中以次充好、偷工减料，质检人员放水。",
+            "control_gaps": ["领料量与安装量未对账", "余料去向不明", "管材品牌/规格未现场核验", "材料进场无检验记录"],
+            "expected_controls": ["领用清单与竣工图材料量逐项核对", "余料限期退库并登记", "关键材料进场检验记录归档"],
+        },
+        {
+            "name": "工程变更造假",
+            "category": "腐败",
+            "risk_level": "高",
+            "signals": ["变更", "签证", "增项", "追加", "调整方案"],
+            "typical_desc": "通过虚假或夸大的工程变更签证增加投资，变更的真实性和必要性缺乏独立验证。常见手法包括先施工后补签证、变更量与现场不符。",
+            "control_gaps": ["变更未事先审批", "变更签证无监理独立确认", "变更量与施工日志不一致", "变更金额占比异常未预警"],
+            "expected_controls": ["变更须事先审批并附方案比选", "监理独立出具变更意见", "累计变更超合同价10%须专项审计"],
+        },
+        {
+            "name": "验收放水/走过场",
+            "category": "不作为",
+            "risk_level": "高",
+            "signals": ["验收", "竣工", "签字", "检查", "通过"],
+            "typical_desc": "验收人员未实际到场或到场不认真检查即签字通过，特别是隐蔽工程验收走过场，掩盖施工质量问题。",
+            "control_gaps": ["验收记录无照片佐证", "隐蔽验收记录时间与实际不符", "验收人员长期固定搭配", "验收标准不明确"],
+            "expected_controls": ["验收现场拍照并带GPS+时间水印", "隐蔽验收提前24h通知且验收组≥2人", "验收组人员不定期轮换"],
+        },
+        {
+            "name": "派工权寻租",
+            "category": "腐败",
+            "risk_level": "中",
+            "signals": ["派工", "调度", "安排", "分配", "指派"],
+            "typical_desc": "调度人员利用派工权优先把好做的、量大的项目派给关系户施工队，或向施工队索要回扣才给活。",
+            "control_gaps": ["派工无记录或记录可事后修改", "派工规则不透明", "同一人长期掌握派工权"],
+            "expected_controls": ["系统随机派工或按规则自动分配", "派工记录实时生成不可修改", "派工与验收岗位分离"],
+        },
+        {
+            "name": "结算虚报",
+            "category": "腐败",
+            "risk_level": "中",
+            "signals": ["结算", "审核", "付款", "计价", "核算"],
+            "typical_desc": "结算审核时虚增工程量或套用高价定额，审核人员与施工方串通，多付工程款。",
+            "control_gaps": ["结算工程量无多方核对", "审核人与施工方直接接触无制约", "结算审核无时限约束"],
+            "expected_controls": ["工程量由施工、监理、业主三方签字确认", "结算审核实行初核+复核双人制", "结算审计按比例抽查"],
+        },
+    ],
+    "给水工程验收": [
+        {
+            "name": "验收标准因人而异/打招呼放行",
+            "category": "腐败",
+            "risk_level": "高",
+            "signals": ["验收", "通过", "签字", "放行", "核定"],
+            "typical_desc": "验收标准执行不统一，领导打招呼或利益关系影响验收结论。不符合条件的工程通过验收，后续可能引发供水安全问题。",
+            "control_gaps": ["验收组成员固定", "验收标准未量化", "验收结论无复核机制", "验收人员与施工方有私下接触"],
+            "expected_controls": ["验收标准逐条量化并公示", "验收组≥3人且含非本片区人员", "验收结论须组长+成员联合签字"],
+        },
+        {
+            "name": "材料进场检验形同虚设",
+            "category": "不作为",
+            "risk_level": "高",
+            "signals": ["材料进场", "核验", "规格", "合格证", "检验"],
+            "typical_desc": "材料进场时未按规范逐批检验，质检人员不到场或到场不检查即签字。不合格材料流入工程造成质量隐患。",
+            "control_gaps": ["材料检验记录缺失批次信息", "检验人员与供应商有利益关系", "不合格材料无追溯和处理记录"],
+            "expected_controls": ["每批次材料检验记录含规格批次数量照片", "不合格材料单独登记并跟踪去向", "材料检验岗位定期轮换"],
+        },
+        {
+            "name": "隐蔽工程验收造假",
+            "category": "腐败",
+            "risk_level": "高",
+            "signals": ["隐蔽工程", "覆盖前", "管沟", "基础", "回填"],
+            "typical_desc": "隐蔽工程在覆盖前未实际验收，事后补做验收记录或伪造影像资料。一旦覆盖后工程质量问题难以追溯。",
+            "control_gaps": ["隐蔽验收影像资料不全或无时间标识", "验收记录时间与施工日志不对应", "验收人员未实际到场"],
+            "expected_controls": ["隐蔽工程验收须提前通知且到场录像", "影像资料含GPS坐标+时间戳+现场标识", "未经验收不得进入下一工序"],
+        },
+        {
+            "name": "结算审核走过场",
+            "category": "不作为",
+            "risk_level": "中",
+            "signals": ["结算", "审核", "工程量", "计价", "付款"],
+            "typical_desc": "结算时对工程量和计价依据审核不严，简单核对表面数据即签字，未做实质性核实。",
+            "control_gaps": ["结算审核未到现场核实工程量", "审核流程单一无复核环节", "结算资料缺失关键佐证"],
+            "expected_controls": ["结算须附完整的工程量确认记录", "审核采用初核+复核+审批三级", "按比例随机抽查现场核实"],
+        },
+    ],
+    "用户报装与接水业务": [
+        {
+            "name": "吃拿卡要/索要好处费",
+            "category": "腐败",
+            "risk_level": "高",
+            "signals": ["勘查", "现场", "用户", "企业", "报装", "进度", "加快"],
+            "typical_desc": "勘查、审批、施工等环节工作人员利用职务便利向用户索取好处费、烟酒礼品或接受宴请，以加快审批或放宽条件作为交换。",
+            "control_gaps": ["单人作业无互相监督", "用户投诉渠道不畅通", "服务过程缺少回访机制", "勘查结论一人说了算"],
+            "expected_controls": ["勘查双人同行且行程记录报备", "审批时限公开并接受用户查询", "定期对用户进行匿名满意度回访"],
+        },
+        {
+            "name": "违规收费/自立名目",
+            "category": "违规",
+            "risk_level": "高",
+            "signals": ["收费", "费用", "预算", "标准", "收取"],
+            "typical_desc": "在国家规定的报装费用之外，以加快费、服务费、材料费等名目违规收取额外费用，费用不入账或部分入账。",
+            "control_gaps": ["收费标准未公示", "收费项目未经批准", "费用收支不透明", "用户不清楚应缴费用明细"],
+            "expected_controls": ["收费标准在窗口及网站公示", "收费项目须经物价部门批准", "所有费用通过单位账户收取并开具凭证"],
+        },
+        {
+            "name": "审批时限暗箱操作",
+            "category": "违规",
+            "risk_level": "中",
+            "signals": ["审批", "时限", "进度", "排队", "先后"],
+            "typical_desc": "利用审批权限人为控制办理速度，有关系打招呼的可以插队加急，没关系的被拖延。以审批排队为借口向用户暗示好处费。",
+            "control_gaps": ["审批进度不透明", "工单处理顺序无规则", "超时审批无预警机制"],
+            "expected_controls": ["审批进度在系统公开可查", "工单按提交时间排序处理", "超时自动预警并通报上级"],
+        },
+        {
+            "name": "强制指定施工队/关联交易",
+            "category": "腐败",
+            "risk_level": "中",
+            "signals": ["施工队", "安排", "指定", "推荐", "介绍"],
+            "typical_desc": "以各种理由强制或诱导用户选择特定施工队，施工队与内部人员存在关联关系或利益分成。",
+            "control_gaps": ["施工队选择无竞争机制", "用户无权自主选择施工方", "内部人员与施工队存在关联未申报"],
+            "expected_controls": ["向用户公示≥3家合格施工队供选择", "内部人员及亲属关联施工队须申报回避", "用户满意度回访含施工队选择自由度调查"],
+        },
+    ],
+    "物资及服务采购": [
+        {
+            "name": "化整为零规避招标",
+            "category": "违规",
+            "risk_level": "高",
+            "signals": ["采购", "招标", "限额", "拆分", "批次", "分次"],
+            "typical_desc": "将大额采购拆分为多笔小额采购，使每笔都在招标限额以下，从而规避公开招标程序，直接指定供应商。",
+            "control_gaps": ["同类采购短期内多笔小额", "采购计划未经汇总审核", "拆分采购缺乏预警机制"],
+            "expected_controls": ["同类物资年度采购计划须汇总审批", "同一品类季度内多笔小额采购自动预警", "拆分采购一经发现追究审批人责任"],
+        },
+        {
+            "name": "围标串标/供应商利益输送",
+            "category": "腐败",
+            "risk_level": "高",
+            "signals": ["招标", "投标", "评标", "供应商", "中标", "报价"],
+            "typical_desc": "采购人员与供应商串通，通过设置倾向性技术参数、提前泄露标底、组织陪标等方式操纵中标结果。供应商通过回扣、干股等方式输送利益。",
+            "control_gaps": ["评标专家固定", "技术参数有指向性", "三家报价存在规律性差异", "供应商长期未更换"],
+            "expected_controls": ["评标专家从库中随机抽取", "技术参数须经技术委员会审核", "供应商库年度更新且关联关系须申报"],
+        },
+        {
+            "name": "验收入库以次充好",
+            "category": "腐败",
+            "risk_level": "高",
+            "signals": ["验收", "入库", "质量", "规格", "数量", "检验"],
+            "typical_desc": "验收人员与供应商串通，对不合格物资放行入库。以次充好、以少充多、规格不符等问题在验收环节被掩盖。",
+            "control_gaps": ["验收人与采购人未分离", "验收记录无第三方签字", "不合格物资去向不明"],
+            "expected_controls": ["验收须由采购人以外的仓管+质检双人执行", "验收记录含规格、数量、批号、照片", "不合格品单独存放并记录处置结果"],
+        },
+        {
+            "name": "虚假采购/套取资金",
+            "category": "腐败",
+            "risk_level": "中",
+            "signals": ["采购", "合同", "付款", "发票", "预付款"],
+            "typical_desc": "通过虚构采购需求、虚高采购价格或虚假入库的方式套取资金。常见于小额、非标准物资采购。",
+            "control_gaps": ["采购需求未经使用部门确认", "采购价格与市场价偏差大", "入库物资与需求不匹配"],
+            "expected_controls": ["采购需求须使用部门负责人签字", "采购价格须与市场价对比", "定期盘点核对库存与采购记录"],
+        },
+        {
+            "name": "物料领用失控/账实不符",
+            "category": "不作为",
+            "risk_level": "中",
+            "signals": ["领料", "申领", "出库", "库存", "退库", "余料"],
+            "typical_desc": "物料领用审批不严，多领少用、领而未用的情况普遍。余料不退回形成账外物资，存在被私用或变卖的风险。",
+            "control_gaps": ["领料审批走过场", "领用量与实际用量未对账", "退库管理缺失", "库存盘点流于形式"],
+            "expected_controls": ["领料须注明用途和预计用量", "完工后领用与实际用量比对", "退库物资单独建账登记"],
+        },
+    ],
+    "综合管理": [
+        {
+            "name": "饭堂采购吃回扣",
+            "category": "腐败",
+            "risk_level": "高",
+            "signals": ["饭堂", "食材", "采购", "供应商", "比价", "配送"],
+            "typical_desc": "饭堂物资采购量大且价格弹性大，供应商长期固定不轮换，采购人员通过虚高价格、虚报数量等方式拿回扣。",
+            "control_gaps": ["食材供应商长期固定", "采购价格未定期比价", "采购量与实际就餐人数不匹配", "食材验收无独立人员"],
+            "expected_controls": ["食材供应商每季度重新询价比价", "验收由非采购人员执行", "采购量与就餐人数定期对账"],
+        },
+        {
+            "name": "公务车辆私用/套取油费",
+            "category": "违规",
+            "risk_level": "中",
+            "signals": ["车辆", "用车", "出车", "油耗", "加油", "里程"],
+            "typical_desc": "公务车辆在非工作时间私用，或通过虚报里程、虚开加油发票等方式套取油费。节假日和夜间用车缺乏有效监管。",
+            "control_gaps": ["用车记录不完整", "油耗与里程不匹配未核查", "非工作时间用车审批不严", "无GPS轨迹监控"],
+            "expected_controls": ["车辆安装GPS并每月抽查行驶轨迹", "油耗按车型核定标准并季度核对", "非工作时间用车须提前审批"],
+        },
+        {
+            "name": "废旧物资处置不入账",
+            "category": "腐败",
+            "risk_level": "高",
+            "signals": ["废旧", "处置", "报废", "拍卖", "残值", "变卖"],
+            "typical_desc": "废旧物资（管材、设备等）处置不公开不透明，处置收入不入账或部分入账，形成小金库或被私分。",
+            "control_gaps": ["废旧物资鉴定走过场", "处置方式不公开", "处置收入未上缴财务", "无处置台账"],
+            "expected_controls": ["废旧物资须经技术鉴定确认不可用", "处置须公开拍卖或询价", "处置收入全额上缴财务并开凭证"],
+        },
+        {
+            "name": "安全生产检查走过场",
+            "category": "不作为",
+            "risk_level": "高",
+            "signals": ["安全", "检查", "排查", "整改", "隐患"],
+            "typical_desc": "安全检查流于形式，检查记录千篇一律，发现的隐患未真正整改或整改后未复查。一旦发生事故将暴露管理缺位。",
+            "control_gaps": ["检查无标准化清单", "发现问题未跟踪整改", "整改后未复查", "检查记录无照片佐证"],
+            "expected_controls": ["安全检查须使用标准化检查表逐项打分", "隐患整改须限期并复查销号", "检查记录含现场照片和整改前后对比"],
+        },
+        {
+            "name": "固定资产账实不符",
+            "category": "不作为",
+            "risk_level": "中",
+            "signals": ["资产", "盘点", "登记", "调拨", "台账"],
+            "typical_desc": "固定资产长期不盘点或盘点走过场，资产调拨不登记，导致账实不符。资产流失或被私人占用长期未发现。",
+            "control_gaps": ["资产长期未盘点", "盘点无外部监督", "调拨无登记手续", "盘盈盘亏未追查原因"],
+            "expected_controls": ["固定资产每年至少全面盘点一次", "盘点须财务+使用部门+独立监督三方参与", "资产调拨须办理转移登记"],
+        },
+        {
+            "name": "人事任免/考核违规",
+            "category": "违规",
+            "risk_level": "中",
+            "signals": ["人事", "考核", "任免", "选拔", "竞聘", "提拔"],
+            "typical_desc": "人事决策缺乏公开透明的程序和标准，存在因人设岗、违规提拔、考核结果被操纵等问题。",
+            "control_gaps": ["选拔标准未公开", "考核过程不透明", "任免程序不合规", "缺少公示环节"],
+            "expected_controls": ["选拔标准和程序须事先公开", "考核结果须公示并接受申诉", "提拔须经集体讨论并形成会议纪要"],
+        },
+    ],
+}
+
+# 行业通用风险关键词（跨领域匹配）
+WATER_INDUSTRY_COMMON_SIGNALS = {
+    "单人操作": ["单人", "一人", "独自", "个人负责", "一个人"],
+    "权力集中": ["兼任", "同时负责", "统一管理", "归口", "负责全面"],
+    "口头指令": ["口头", "电话通知", "打招呼", "先说后补", "特批"],
+    "缺乏留痕": ["无记录", "不留痕", "事后补", "未归档", "/"],
+    "长期固定": ["长期", "固定", "一直", "多年", "不变", "稳定合作"],
+}
+
+
+# ============================================================================
 # 最小节点清单（业务标尺）
 # ============================================================================
 
@@ -1888,6 +2152,7 @@ def generate_excel_report(
     impl_comparisons: list[dict],
     all_diffs: dict,
     integrity_results: list[dict] | None = None,
+    risk_intelligence: list[dict] | None = None,
 ):
     """生成完整的 Excel 分析报告"""
     wb = openpyxl.Workbook()
@@ -2152,6 +2417,44 @@ def generate_excel_report(
         ws7.column_dimensions['J'].width = 60
         ws7.auto_filter.ref = ws7.dimensions
 
+    # ---- Sheet 8: 廉洁风险洞察 ----
+    if risk_intelligence:
+        ws8 = wb.create_sheet("廉洁风险洞察")
+        headers8 = ["严重度", "排查领域", "风险等级", "风险名称", "风险类别",
+                     "单位", "业务名称", "匹配信号", "自查是否覆盖", "防控缺口数", "防控缺口", "行业典型表现"]
+        NCOLS8 = len(headers8)
+        _style_header(ws8, headers8)
+        for i, fi in enumerate(risk_intelligence):
+            row = i + 2
+            ws8.cell(row=row, column=1, value=fi["severity"])
+            ws8.cell(row=row, column=2, value=fi["domain"])
+            ws8.cell(row=row, column=3, value=fi["risk_level"])
+            ws8.cell(row=row, column=4, value=fi["risk_name"])
+            ws8.cell(row=row, column=5, value=fi["category"])
+            ws8.cell(row=row, column=6, value=fi["unit"])
+            ws8.cell(row=row, column=7, value=fi["business"])
+            ws8.cell(row=row, column=8, value=fi["matched_signals"])
+            ws8.cell(row=row, column=9, value=fi["blind_spot_label"])
+            ws8.cell(row=row, column=10, value=fi["gap_count"])
+            ws8.cell(row=row, column=11, value="; ".join(fi["control_gaps"][:4]))
+            ws8.cell(row=row, column=12, value=fi["typical_desc"])
+            # 着色
+            if fi["severity"] == "高" and fi["blind_spot"]:
+                for c in range(1, NCOLS8 + 1):
+                    ws8.cell(row=row, column=c).fill = RED_FILL
+            elif fi["severity"] == "高":
+                for c in range(1, NCOLS8 + 1):
+                    ws8.cell(row=row, column=c).fill = ORANGE_FILL
+            elif fi["blind_spot"]:
+                for c in range(1, NCOLS8 + 1):
+                    ws8.cell(row=row, column=c).fill = YELLOW_FILL
+        _style_body(ws8, 2, len(risk_intelligence) + 1, NCOLS8)
+        _auto_width(ws8)
+        ws8.column_dimensions['H'].width = 35
+        ws8.column_dimensions['K'].width = 50
+        ws8.column_dimensions['L'].width = 55
+        ws8.auto_filter.ref = ws8.dimensions
+
     wb.save(output_path)
     print(f"[报告] Excel 分析报告已保存至: {output_path}")
 
@@ -2369,6 +2672,7 @@ def generate_docx_summary(
     cat_issues: list[dict],
     domain_conflicts: list,
     impl_comparisons: list[dict],
+    risk_intelligence: list[dict] | None = None,
 ):
     """生成文字版分析总结报告（.docx）"""
     if not DOCX_AVAILABLE:
@@ -2568,6 +2872,41 @@ def generate_docx_summary(
     for sug in suggestions:
         _docx_add_para(doc, sug, indent=True)
 
+    # ── 九、廉洁风险洞察（基于行业知识库） ──
+    if risk_intelligence:
+        _docx_add_heading(doc, "九、廉洁风险洞察", level=1)
+        summary = generate_risk_intelligence_summary(risk_intelligence)
+        _docx_add_para(doc, f"基于供水行业高频腐败/违规/不作为风险知识库，对 {len(submissions)} 条自查记录的流程描述进行信号匹配分析，共识别 {summary['total']} 条潜在风险信号，其中高严重度 {summary['high_severity']} 条，自查未覆盖的盲区 {summary['blind_spots']} 条。", indent=True)
+
+        if summary.get("by_category"):
+            _docx_add_para(doc, f"风险类别分布：腐败类 {summary['by_category'].get('腐败', 0)} 条、违规类 {summary['by_category'].get('违规', 0)} 条、不作为类 {summary['by_category'].get('不作为', 0)} 条。", indent=True)
+
+        if summary.get("top_risks"):
+            _docx_add_para(doc, "各排查领域高频风险信号：", indent=True)
+            for domain, risks in summary["top_risks"].items():
+                risk_str = "、".join(f"{r[0]}（{r[1]}次）" for r in risks)
+                _docx_add_para(doc, f"• {domain}：{risk_str}", indent=True)
+
+        # 高严重度+盲区（最需要关注的）
+        critical = [f for f in risk_intelligence if f["severity"] == "高" and f["blind_spot"]]
+        if critical:
+            _docx_add_para(doc, f"高风险盲区（存在风险信号但单位自查未提及，共 {len(critical)} 条）：", bold=True)
+            headers = ["排查领域", "单位", "业务名称", "风险名称", "风险类别"]
+            rows_data = [
+                [f["domain"], f["unit"], f["business"], f["risk_name"], f["category"]]
+                for f in critical[:15]
+            ]
+            _docx_add_table(doc, headers, rows_data, col_widths=[4, 3, 3, 4, 2])
+
+        # 防控缺口最多的
+        worst_gaps = sorted(risk_intelligence, key=lambda x: x["gap_count"], reverse=True)[:5]
+        if worst_gaps and worst_gaps[0]["gap_count"] > 0:
+            _docx_add_para(doc, "防控缺口最多的 5 条风险：", bold=True)
+            for f in worst_gaps:
+                _docx_add_para(doc, f"• [{f['domain']}] {f['unit']} — {f['risk_name']}：缺少 {f['gap_count']} 项防控（{'; '.join(f['control_gaps'][:3])}）", indent=True)
+
+        _docx_add_para(doc, '提示：以上洞察基于行业经验规则自动生成，具体风险是否成立需结合现场核验进一步确认。详见 Excel 报告「廉洁风险洞察」Sheet。', indent=True)
+
     # ── 页脚 ──
     doc.add_paragraph()
     _docx_add_para(doc, "本报告由 lzpc 分析工具自动生成，基于各单位提交的自查材料。如需调整分析参数，请编辑 analyzer.py 中的配置项。", indent=False)
@@ -2719,6 +3058,165 @@ def generate_docx_handbook(
 
 
 # ============================================================================
+# 廉洁风险情报分析
+# ============================================================================
+
+def analyze_risk_intelligence(submissions: list, pairs: dict) -> list[dict]:
+    """
+    基于供水行业风险知识库，从流程数据中挖掘潜在廉洁风险信号。
+    返回风险情报列表，每条包含：领域、单位、业务名称、风险名称、
+    风险类别、风险等级、匹配依据、防控缺口、建议措施。
+    """
+    findings = []
+
+    for s in submissions:
+        domain = s.inspection_domain or s.business_name_canonical
+        if not domain or domain == "其他":
+            continue
+
+        patterns = WATER_INDUSTRY_RISK_PATTERNS.get(domain, [])
+        if not patterns:
+            continue
+
+        process_text = s.raw_process
+        risk_text = s.risk_description
+        measures_text = s.prevention_measures
+
+        for pattern in patterns:
+            # 1. 信号匹配：流程描述中是否存在风险信号
+            signal_hits = []
+            for sig in pattern.get("signals", []):
+                if sig in process_text:
+                    signal_hits.append(sig)
+
+            # 同时检查通用信号
+            for sig_name, sig_kw_list in WATER_INDUSTRY_COMMON_SIGNALS.items():
+                if sig_name not in [h for h in signal_hits]:
+                    for kw in sig_kw_list:
+                        if kw in process_text:
+                            signal_hits.append(f"[通用]{sig_name}:{kw}")
+                            break
+
+            if not signal_hits:
+                continue
+
+            # 2. 盲区检测：风险自述是否提到了这个风险
+            risk_mentioned = _check_risk_mentioned(pattern["name"], pattern.get("signals", []), risk_text)
+            blind_spot = not risk_mentioned
+
+            # 3. 防控缺口：防控措施是否覆盖了预期控制
+            control_gaps = []
+            for ctrl in pattern.get("control_gaps", []):
+                # 检查防控措施中是否有类似表述
+                if not _text_contains_similar(measures_text, ctrl):
+                    control_gaps.append(ctrl)
+
+            # 4. 评估严重程度
+            severity = "高"
+            if blind_spot and control_gaps:
+                severity = "高"
+            elif blind_spot or control_gaps:
+                severity = "中"
+            else:
+                severity = "低"
+
+            findings.append({
+                "domain": domain,
+                "unit": s.unit_name,
+                "business": s.business_name_raw,
+                "role": s.unit_role,
+                "risk_name": pattern["name"],
+                "category": pattern["category"],
+                "risk_level": pattern["risk_level"],
+                "matched_signals": ", ".join(signal_hits),
+                "blind_spot": blind_spot,
+                "blind_spot_label": "是 ⚠" if blind_spot else "否",
+                "control_gaps": control_gaps,
+                "gap_count": len(control_gaps),
+                "severity": severity,
+                "typical_desc": pattern.get("typical_desc", ""),
+                "expected_controls": pattern.get("expected_controls", []),
+            })
+
+    # 按严重程度和风险等级排序
+    findings.sort(key=lambda x: (
+        0 if x["severity"] == "高" else (1 if x["severity"] == "中" else 2),
+        0 if x["blind_spot"] else 1,
+    ))
+
+    return findings
+
+
+def _check_risk_mentioned(risk_name: str, signals: list[str], risk_text: str) -> bool:
+    """检查风险描述中是否提到了某个风险"""
+    if not risk_text:
+        return False
+    # 风险名称中的关键词
+    name_parts = risk_name.replace("/", " ").split()
+    # 信号词
+    for part in name_parts:
+        if len(part) >= 2 and part in risk_text:
+            return True
+    for sig in signals:
+        if len(sig) >= 2 and sig in risk_text:
+            return True
+    # 模糊匹配
+    for part in name_parts:
+        if len(part) >= 3:
+            if difflib.SequenceMatcher(None, part, risk_text).ratio() > 0.3:
+                # 用滑动窗口检查
+                for i in range(len(risk_text) - len(part) + 1):
+                    window = risk_text[i:i + len(part)]
+                    if difflib.SequenceMatcher(None, part, window).ratio() > 0.7:
+                        return True
+    return False
+
+
+def _text_contains_similar(text: str, target: str) -> bool:
+    """检查文本中是否包含与目标相似的表述"""
+    if not text:
+        return False
+    if target in text:
+        return True
+    # 提取 target 中长度>=2的关键词
+    for ch in [target, *target.split(), *[target[i:i+2] for i in range(len(target)-1)]]:
+        if len(ch) >= 2 and ch in text:
+            return True
+    return False
+
+
+def generate_risk_intelligence_summary(findings: list[dict]) -> dict:
+    """生成风险情报汇总统计"""
+    if not findings:
+        return {"total": 0}
+
+    high_severity = [f for f in findings if f["severity"] == "高"]
+    blind_spots = [f for f in findings if f["blind_spot"]]
+    by_category = defaultdict(int)
+    by_domain = defaultdict(int)
+    for f in findings:
+        by_category[f["category"]] += 1
+        by_domain[f["domain"]] += 1
+
+    # 每个领域最高频的风险
+    top_risks_by_domain = defaultdict(list)
+    for f in findings:
+        top_risks_by_domain[f["domain"]].append(f["risk_name"])
+    for d in top_risks_by_domain:
+        from collections import Counter
+        top_risks_by_domain[d] = Counter(top_risks_by_domain[d]).most_common(3)
+
+    return {
+        "total": len(findings),
+        "high_severity": len(high_severity),
+        "blind_spots": len(blind_spots),
+        "by_category": dict(by_category),
+        "by_domain": dict(by_domain),
+        "top_risks": dict(top_risks_by_domain),
+    }
+
+
+# ============================================================================
 # 主流程
 # ============================================================================
 
@@ -2837,6 +3335,14 @@ def main():
     # 提前收集供 docx 报告使用的变量
     domain_conflicts = [s for s in submissions if s.domain_confidence == "待确认"]
 
+    # Step 5.8: 风险情报分析
+    print("\n[5.8/6] 基于行业知识库进行风险情报分析...")
+    risk_intelligence = analyze_risk_intelligence(submissions, pairs)
+    ri_summary = generate_risk_intelligence_summary(risk_intelligence)
+    print(f"[情报] 共识别 {ri_summary['total']} 条潜在风险信号")
+    if ri_summary.get("high_severity"):
+        print(f"[情报] 高严重度: {ri_summary['high_severity']} 条, 自查盲区: {ri_summary['blind_spots']} 条")
+
     # Step 6: 生成报告
     print("\n[6/6] 生成分析报告...")
 
@@ -2846,6 +3352,7 @@ def main():
         str(excel_path), pairs, business_risks, unit_qualities,
         impl_comparisons, all_diffs,
         integrity_results=integrity_results,
+        risk_intelligence=risk_intelligence,
     )
 
     # Docx 文字总结报告
@@ -2854,6 +3361,7 @@ def main():
         str(docx_summary_path), submissions, pairs, business_risks,
         unit_qualities, integrity_results, orphans, all_diffs,
         cat_issues, domain_conflicts, impl_comparisons,
+        risk_intelligence=risk_intelligence,
     )
 
     # Docx 现场核验手册
@@ -2963,6 +3471,13 @@ def main():
                 print(f"  [{ir['grade']}] {ir['unit']}（{ir['domain']}）:")
                 for ci in conceal_issues[:3]:
                     print(f"      {ci}")
+
+    # 风险情报统计
+    if ri_summary["total"] > 0:
+        print(f"\n[*] 风险情报: 共 {ri_summary['total']} 条信号")
+        print(f"  高严重度: {ri_summary['high_severity']} 条, 自查盲区: {ri_summary['blind_spots']} 条")
+        if ri_summary.get("by_category"):
+            print(f"  类别: 腐败{ri_summary['by_category'].get('腐败', 0)} / 违规{ri_summary['by_category'].get('违规', 0)} / 不作为{ri_summary['by_category'].get('不作为', 0)}")
 
     print(f"\n详细报告:")
     print(f"  [Excel] {excel_path}")
